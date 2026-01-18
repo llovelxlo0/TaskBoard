@@ -3,6 +3,8 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use App\Events\TaskStatusChanged;
+use App\Listeners\LogTaskStatusChange;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
