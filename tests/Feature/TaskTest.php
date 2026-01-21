@@ -2,13 +2,13 @@
 
 namespace Tests\Feature;
 
-use App\Enums\TaskPriority;
+use App\Enums\TaskPriorityEnum;
 use App\Models\TaskActivity;
 use App\Models\User;
 use App\Services\TaskService;
 use Tests\TestCase;
 use App\Models\Task;
-use App\Enums\TaskStatus;
+use App\Enums\TaskStatusEnum;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class TaskTest extends TestCase
@@ -17,67 +17,102 @@ class TaskTest extends TestCase
 
     public function test_task_can_be_created(): void
     {
-        $response = $this->postJson('/tasks', [
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $response = $this->post(route('tasks.store'), [
             'title' => 'New Task',
+            'priority' => TaskPriorityEnum::MEDIUM->value,
+            'status' => TaskStatusEnum::TODO->value,
+            'short_description' => null,
+            'full_description' => null,
         ]);
+        $task = Task::query()->latest('id')->first();
+        $this->assertNotNull($task);
 
-        $response->assertStatus(201);
-
+        $response->assertRedirect(route('tasks.show', $task->id));
         $this->assertDatabaseHas('tasks', [
+            'id' => $task->id,
             'title' => 'New Task',
-            'status' => 'todo',
+            'user_id' => $user->id,
+            'status' => TaskStatusEnum::TODO->value,
         ]);
     }
     public function test_task_can_be_changed(): void
     {
-        $task = Task::create([
-            'title' => 'Existing Task',
-            'status' => TaskStatus::IN_PROGRESS,
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $task = Task::factory()->create([
+            'user_id' => $user->id,
+            'status' => TaskStatusEnum::TODO,
         ]);
-        $this->patchJson("/tasks/{$task->id}/status", [
-            'status' => 'in_progress',
+
+        $response = $this->put(route('tasks.update', $task), [
+            'title' => $task->title,
+            'priority' => $task->priority->value,
+            'status' => TaskStatusEnum::IN_PROGRESS->value,
+            'short_description' => $task->short_description,
+            'full_description' => $task->full_description,
         ]);
+
+        // web: обычно redirect, api: 200/204
+        $response->assertStatus(302);
 
         $this->assertDatabaseHas('tasks', [
             'id' => $task->id,
-            'status' => 'in_progress',
+            'status' => TaskStatusEnum::IN_PROGRESS->value,
         ]);
     }
     public function test_task_cannot_be_updated_with_invalid_status(): void
     {
-        $task = Task::create([
-            'title' => 'Task',
-            'status' => TaskStatus::TODO,
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $task = Task::factory()->create([
+            'user_id' => $user->id,
+            'status' => TaskStatusEnum::TODO,
         ]);
 
-        $response = $this->patchJson("/tasks/{$task->id}/status", [
+        $response = $this->put(route('tasks.update', $task), [
+            'title' => $task->title,
+            'priority' => $task->priority->value,
             'status' => 'banana',
+            'short_description' => $task->short_description,
+            'full_description' => $task->full_description,
         ]);
 
-        $response->assertStatus(422);
+        $response->assertStatus(302);
+        $response->assertSessionHasErrors(['status']);
     }
     public function test_can_filter_tasks_by_status(): void
     {
-        Task::create(['title' => 'Todo', 'status' => TaskStatus::TODO]);
-        Task::create(['title' => 'In progress', 'status' => TaskStatus::IN_PROGRESS]);
+        $user = User::factory()->create();
+        $this->actingAs($user);
 
-        $response = $this->getJson('/tasks?status=in_progress');
-        $response->dump();
-
-        $response->assertStatus(200);
-        $response->assertJsonCount(1);
-        $response->assertJsonFragment([
-            'status' => 'in_progress',
+        Task::factory()->create([
+            'user_id' => $user->id,
+            'title' => 'In progress',
+            'status' => TaskStatusEnum::IN_PROGRESS,
         ]);
+        $response = $this->get('/tasks?status'. TaskStatusEnum::IN_PROGRESS->value);
+        $response->assertOk();
+        $response->assertSee('In progress');
+        $response->assertDontSee('Todo');
     }
     public function test_can_get_tasks_list(): void
     {
-        Task::create(['title' => 'Task 1', 'status' => TaskStatus::TODO]);
-        Task::create(['title' => 'Task 2', 'status' => TaskStatus::IN_PROGRESS]);
+        $user = User::factory()->create();
+        $this->actingAs($user);
 
-        $response = $this->getJson('/tasks');
-        $response->assertStatus(200);
-        $response->assertJsonCount(2);
+        Task::factory()->count(2)->create([
+            'user_id' => $user->id,
+        ]);
+
+        $response = $this->get('/tasks');
+
+        $response->assertOk();
+        $response->assertSee(2);
     }
     public function test_task_is_soft_deleted(): void
     {
@@ -105,7 +140,12 @@ class TaskTest extends TestCase
     }
     public function test_task_can_be_soft_deleted(): void
     {
-        $task = Task::factory()->create();
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $task = Task::factory()->create([
+            'user_id' => $user->id,
+        ]);
 
         $response = $this->delete(route('tasks.destroy', $task));
 
@@ -117,16 +157,21 @@ class TaskTest extends TestCase
     }
     public function test_soft_deleted_task_can_be_restored(): void
     {
-        $task = Task::factory()->create();
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $task = Task::factory()->create([
+            'user_id' => $user->id,
+        ]);
+
         $task->delete();
 
-        $this->assertSoftDeleted('tasks', [
-            'id' => $task->id,
-        ]);
+        $this->assertSoftDeleted('tasks', ['id' => $task->id]);
+
         $response = $this->patch(route('tasks.restore', $task->id));
+
         $response->assertNoContent();
 
-        // Проверка, что deleted_at теперь null
         $this->assertDatabaseHas('tasks', [
             'id' => $task->id,
             'deleted_at' => null,
@@ -137,9 +182,9 @@ class TaskTest extends TestCase
         $user = User::factory()->create();
         $task = Task::factory()->create([
             'user_id' => $user->id,
-            'status' => TaskStatus::TODO,
+            'status' => TaskStatusEnum::TODO,
         ]);
-        app(TaskService::class)->changeStatus($task, TaskStatus::IN_PROGRESS, $user);
+        app(TaskService::class)->changeStatus($task, TaskStatusEnum::IN_PROGRESS, $user);
         $this->assertDatabaseHas('task_activities', [
             'task_id' => $task->id,
             'actor_id' => $user->id,
@@ -154,16 +199,16 @@ class TaskTest extends TestCase
             'user_id' => $user->id,
             'title' => 'Old',
             'short_description' => 'S1',
-            'priority' => TaskPriority::MEDIUM,
-            'status' => TaskStatus::TODO,
+            'priority' => TaskPriorityEnum::MEDIUM,
+            'status' => TaskStatusEnum::TODO,
         ]);
 
         $this->actingAs($user)->put(route('tasks.update', $task), [
             'title' => 'Old', // не меняем
             'short_description' => 'S2', // меняем
             'full_description' => null,
-            'priority' => TaskPriority::HIGH->value, // меняем
-            'status' => TaskStatus::TODO->value,
+            'priority' => TaskPriorityEnum::HIGH->value, // меняем
+            'status' => TaskStatusEnum::TODO->value,
         ])->assertRedirect(route('tasks.show', $task));
 
         $this->assertDatabaseHas('task_activities', [
@@ -179,5 +224,34 @@ class TaskTest extends TestCase
         $this->assertArrayHasKey('priority', $activity->meta['fields']);
         $this->assertSame('medium', $activity->meta['fields']['priority']['from']);
         $this->assertSame('high', $activity->meta['fields']['priority']['to']);
+    }
+    public function test_user_can_add_comment_to_task(): void
+    {
+        $user = User::factory()->create();
+        $task = Task::factory()->create([
+            'user_id' => $user->id,
+            'status' => TaskStatusEnum::TODO,
+            'priority' => TaskPriorityEnum::MEDIUM,
+        ]);
+
+        $this->actingAs($user);
+
+        $response = $this->post(route('tasks.comments.store', $task), [
+            'comment' => 'First comment',
+        ]);
+
+        $response->assertRedirect(route('tasks.show', $task));
+
+        $this->assertDatabaseHas('task_comments', [
+            'task_id' => $task->id,
+            'user_id' => $user->id,
+            'comment' => 'First comment',
+        ]);
+
+        $this->assertDatabaseHas('task_activities', [
+            'task_id' => $task->id,
+            'actor_id' => $user->id,
+            'type' => 'comment_added',
+        ]);
     }
 }

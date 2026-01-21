@@ -1,7 +1,7 @@
 <?php
 namespace Tests\Unit;
 
-use App\Enums\TaskStatus;
+use App\Enums\TaskStatusEnum;
 use App\Events\TaskCreated;
 use App\Listeners\LogTaskCreated;
 use App\Models\Task;
@@ -39,7 +39,7 @@ class TaskActivities extends TestCase
             'user_id' => $user->id,
             'title' => 'T1'
         ]);
-        $event = new TaskCreated(task: $task, user: $user);
+        $event = new TaskCreated(task: $task, actor: $user);
 
         new LogTaskCreated()->handle($event);
 
