@@ -51,6 +51,32 @@
         @endforeach
     </ul>
 @endif
+<hr>
+<h2>Comments</h2>
+
+@auth
+    <form method="POST" action="{{ route('tasks.comments.store', $task) }}">
+        @csrf
+        <textarea name="comment" rows="3" required></textarea><br>
+        <button type="submit">Add comment</button>
+    </form>
+@endauth
+
+@if($task->comments->isEmpty())
+    <p>No comments yet.</p>
+@else
+    <ul>
+        @foreach($task->comments as $comment)
+            <li>
+                <strong>{{ $comment->user->name }}</strong>
+                ({{ $comment->created_at->format('Y-m-d H:i') }}):
+                <br>
+                {{ $comment->comment }}
+            </li>
+        @endforeach
+    </ul>
+@endif
+
 
 
 <p><a href="{{ route('tasks.edit', $task) }}">edit</a></p>

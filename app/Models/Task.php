@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-use App\Enums\TaskPriority;
+use App\Enums\TaskPriorityEnum;
 use Illuminate\Database\Eloquent\Model;
-use App\Enums\TaskStatus;
+use App\Enums\TaskStatusEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\User;
@@ -23,20 +23,28 @@ class Task extends Model
         'full_description',
     ];
     protected $casts = [
-        'status' => TaskStatus::class,
-        'priority' => TaskPriority::class,
+        'status' => TaskStatusEnum::class,
+        'priority' => TaskPriorityEnum::class,
         'completed_at' => 'datetime',
     ];
-    public function changeStatus(TaskStatus $status): void
+    public function changeStatus(TaskStatusEnum $status): void
     {
         $this->status = $status;
 
-        if ($status === TaskStatus::COMPLETED) {
+        if ($status === TaskStatusEnum::COMPLETED) {
             $this->completed_at = Carbon::now();
         } else {
             $this->completed_at = null;
         }
         $this->save();
+    }
+    public function moveTo(TaskStatusEnum $status): void
+    {
+        if ($status === TaskStatusEnum::COMPLETED) {
+            $this->setCompleted();
+            return;
+        }
+        $this->changeStatus($status);
     }
     public function activities()
     {
@@ -45,5 +53,21 @@ class Task extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+    public function comments()
+    {
+        return $this->hasMany(TaskComment::class)->latest();
+    }
+    public function setCompleted(): void
+    {
+        $this->changeStatus(TaskStatusEnum::COMPLETED);
+    }
+    public function reopen(): void
+    {
+        $this->changeStatus(TaskStatusEnum::IN_PROGRESS);
+    }
+    public function isCompleted(): bool
+    {
+        return $this->status === TaskStatusEnum::COMPLETED;
     }
 }

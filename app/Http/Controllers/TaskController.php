@@ -2,13 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\TaskPriority;
-use Illuminate\Http\Response;
-use Illuminate\Http\Request;
+use App\Enums\TaskPriorityEnum;
+use App\Enums\TaskStatusEnum;
+use App\Http\Requests\TaskCommentRequest;
+use App\Http\Requests\TaskStoreRequest;
+use App\Http\Requests\TaskUpdateRequest;
 use App\Models\Task;
-use App\Enums\TaskStatus;
 use App\Services\TaskService;
-use Illuminate\Validation\Rule;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 class TaskController extends Controller
 {
@@ -26,8 +28,8 @@ class TaskController extends Controller
     }
     public function create()
     {
-        $priorities = array_map(fn($c)=> $c->value, TaskPriority::cases());
-        $statuses = array_map(fn($c)=> $c->value, TaskStatus::cases());
+        $priorities = array_map(fn($c)=> $c->value, TaskPriorityEnum::cases());
+        $statuses = array_map(fn($c)=> $c->value, TaskStatusEnum::cases());
 
         return view('tasks.create', compact('priorities', 'statuses'));
     }
@@ -43,31 +45,20 @@ class TaskController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(TaskStoreRequest $request, TaskService $service)
     {
-        $data = $request->validate([
-            'title' => ['required', 'string', 'max:255'],
-            'short_description' => ['nullable', 'string', 'max:255'],
-            'full_description' => ['nullable', 'string'],
-            'priority' => ['required', 'string'],
-            'status' => ['required', 'string'],
-        ]);
+        $task = $service->create(
+            actor: $request->user(),
+            data: $request->validated()
+        );
 
-        $task = $this->taskService->create($request->user(), $data);
-        return redirect()->route('tasks.show', $task->id);
+        return redirect()->route('tasks.show', $task);
     }
-    public function update(Request $request, Task $task)
+    public function update(TaskUpdateRequest $request, Task $task, TaskService $service)
     {
         $this->authorize('update', $task);
 
-        $data = $request->validate([
-            'title' => ['required', 'string', 'max:255'],
-            'short_description' => ['nullable', 'string', 'max:255'],
-            'full_description' => ['nullable', 'string'],
-            'priority' => ['required', 'string'],
-            'status' => ['required', 'string'],
-        ]);
-        $this->taskService->update($task, $data, $request->user());
+        $service->update($task, $request->validated(), $request->user());
 
         return redirect()->route('tasks.show', $task);
     }
@@ -75,8 +66,8 @@ class TaskController extends Controller
     {
         $this->authorize('update', $task);
 
-        $priorities = array_map(fn($c) => $c->value, TaskPriority::cases());
-        $statuses = array_map(fn($c) => $c->value, TaskStatus::cases());
+        $priorities = array_map(fn($c) => $c->value, TaskPriorityEnum::cases());
+        $statuses = array_map(fn($c) => $c->value, TaskStatusEnum::cases());
 
         return view('tasks.edit', compact('task', 'priorities', 'statuses'));
     }
@@ -97,5 +88,18 @@ class TaskController extends Controller
         $this->taskService->restore($taskModel);
 
         return response()->noContent();
+    }
+
+    public function commentStore(Task $task, TaskCommentRequest $request)
+    {
+        //$this->authorize('view', $task);
+        $request->validated();
+
+        $this->taskService->addComment(
+            $task,
+            $request->user(),
+            $request->string('comment')->toString()
+        );
+        return redirect()->route('tasks.show', $task);
     }
 }

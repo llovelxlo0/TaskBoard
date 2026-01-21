@@ -11,6 +11,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/tasks/{task}', [TaskController::class, 'show'])->name('tasks.show');
     Route::put('/tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
 
+    Route::post('/tasks/{task}/comments', [TaskController::class, 'commentStore'])->name('tasks.comments.store');
+
 
     Route::delete('/tasks/{task}', [TaskController::class, 'destroy'])->name('tasks.destroy');
     Route::patch('/tasks/{task}/restore', [TaskController::class, 'restore'])->name('tasks.restore');
