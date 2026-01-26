@@ -18,7 +18,7 @@ class TaskController extends Controller
         private readonly TaskService $taskService
     ) {}
 
-    public function index(Request $request)
+    public function index()
     {
         $this->authorize('viewAny', Task::class);
 
@@ -37,12 +37,14 @@ class TaskController extends Controller
     {
         $this->authorize('view', $task);
 
-        $task->load(['user', 'activities.actor']);
+        $task->load([
+            'user',
+            'comments.user',
+            'activities.comment.user',
+            'activities.actor']
+        );
 
-        return view('tasks.show', [
-            'task' => $task,
-            'activities' => $task->activities->sortByDesc('id'),
-        ]);
+        return view('tasks.show', compact('task'));
     }
 
     public function store(TaskStoreRequest $request, TaskService $service)
@@ -54,6 +56,10 @@ class TaskController extends Controller
 
         return redirect()->route('tasks.show', $task);
     }
+
+    /**
+     * @throws \Throwable
+     */
     public function update(TaskUpdateRequest $request, Task $task, TaskService $service)
     {
         $this->authorize('update', $task);
