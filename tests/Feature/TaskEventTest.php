@@ -58,6 +58,6 @@ class TaskEventTest extends TestCase
         } catch (\Exception) {
             // Exception is expected
         }
-        $this->assertEquals(TaskStatusEnum::TODO, $task->fresh()->status, $user);
+        $this->assertEquals(TaskStatusEnum::TODO, $task->fresh()->status);
     }
 }

@@ -6,5 +6,5 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-@include __DIR__ . '/Task.php';
-@include __DIR__ . '/Auth.php';
+require __DIR__ . '/Task.php';
+require __DIR__ . '/Auth.php';

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\TaskPriorityEnum;
 use App\Models\TaskActivity;
+use App\Models\TaskComment;
 use App\Models\User;
 use App\Services\TaskService;
 use Tests\TestCase;
@@ -95,7 +96,7 @@ class TaskTest extends TestCase
             'title' => 'In progress',
             'status' => TaskStatusEnum::IN_PROGRESS,
         ]);
-        $response = $this->get('/tasks?status'. TaskStatusEnum::IN_PROGRESS->value);
+        $response = $this->get('/tasks?status=' . TaskStatusEnum::IN_PROGRESS->value);
         $response->assertOk();
         $response->assertSee('In progress');
         $response->assertDontSee('Todo');
@@ -239,6 +240,7 @@ class TaskTest extends TestCase
         $response = $this->post(route('tasks.comments.store', $task), [
             'comment' => 'First comment',
         ]);
+        $comment = TaskComment::query()->latest('id')->first();
 
         $response->assertRedirect(route('tasks.show', $task));
 
@@ -251,6 +253,7 @@ class TaskTest extends TestCase
         $this->assertDatabaseHas('task_activities', [
             'task_id' => $task->id,
             'actor_id' => $user->id,
+            'comment_id' => $comment->id,
             'type' => 'comment_added',
         ]);
     }

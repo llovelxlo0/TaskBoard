@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 use App\Enums\TaskStatusEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\User;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Carbon\Carbon;
 
@@ -46,9 +45,9 @@ class Task extends Model
         }
         $this->changeStatus($status);
     }
-    public function activities()
+    public function activities(): \Illuminate\Database\Eloquent\Relations\HasMany|Task
     {
-        return $this->hasMany(TaskActivity::class);
+        return $this->hasMany(TaskActivity::class)->latest();
     }
     public function user(): BelongsTo
     {
