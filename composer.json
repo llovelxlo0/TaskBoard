@@ -18,7 +18,8 @@
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
         "phpunit/phpunit": "^11.5.3",
-        "ext-http": "*"
+        "ext-http": "*",
+        "laravelproj/audit-activity": "dev-master@dev"
     },
     "autoload": {
         "psr-4": {
@@ -27,6 +28,13 @@
             "Database\\Seeders\\": "database/seeders/"
         }
     },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "packages/audit-activity",
+            "options": { "symlink": true }
+        }
+    ],
     "autoload-dev": {
         "psr-4": {
             "Tests\\": "tests/"
